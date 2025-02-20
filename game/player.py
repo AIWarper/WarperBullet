@@ -21,6 +21,7 @@ class Player(pygame.sprite.Sprite):
         self.post_roll_invulnerable = 0  # New timer for post-roll invulnerability
         self.damage_flash_time = 0
         self.original_image = self.image.copy()
+        self.debug_invulnerable = False  # Add debug flag
 
     def update(self, dt):
         keys = pygame.key.get_pressed()
@@ -84,10 +85,13 @@ class Player(pygame.sprite.Sprite):
             self.roll_cooldown -= dt
 
     def take_damage(self):
-        if not self.is_invulnerable():
+        if self.debug_invulnerable:
+            return False
+        
+        if self.invulnerable_timer <= 0:
             self.hearts -= 1
             self.invulnerable_timer = 1.5
-            self.damage_flash_time = 0.3  # Flash red for 0.3 seconds
+            self.damage_flash_time = 0.3
             return True
         return False
 

@@ -66,4 +66,15 @@ def draw_death_screen(surface, buttons):
     
     # Draw buttons
     for button in buttons:
-        button.draw(surface) 
+        button.draw(surface)
+
+def draw_win_screen(surface):
+    font = pygame.font.Font(None, 74)
+    text = font.render("Congratulations!", True, (255, 255, 255))
+    text_rect = text.get_rect(center=(WIDTH/2, HEIGHT/2))
+    surface.blit(text, text_rect)
+    
+    font = pygame.font.Font(None, 36)
+    subtext = font.render("You defeated the boss!", True, (255, 255, 255))
+    subtext_rect = subtext.get_rect(center=(WIDTH/2, HEIGHT/2 + 50))
+    surface.blit(subtext, subtext_rect) 

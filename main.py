@@ -6,7 +6,7 @@ from game.player import Player
 from game.boss import Boss
 from game.bullet import Bullet
 from game.utils import draw_hearts, ScreenShake, Impact
-from game.ui import Button, draw_title_screen, draw_death_screen
+from game.ui import Button, draw_title_screen, draw_death_screen, draw_win_screen
 
 async def main():
     pygame.init()
@@ -33,12 +33,18 @@ async def main():
         yellow_gun_sound.set_volume(0.3)
         laser_sound = pygame.mixer.Sound("assets/sfx/lazer.wav")
         laser_sound.set_volume(0.4)
+        red_gun_sound = pygame.mixer.Sound("assets/sfx/red_gun.wav")
+        red_gun_sound.set_volume(0.3)
+        machine_gun_sound = pygame.mixer.Sound("assets/sfx/machine_gun.wav")
+        machine_gun_sound.set_volume(0.3)
     except Exception as e:
         print("Error loading sound effects")
         player_gun_sound = None
         boss_explosion_sound = None
         yellow_gun_sound = None
         laser_sound = None
+        red_gun_sound = None
+        machine_gun_sound = None
 
     all_sprites = pygame.sprite.Group()
     boss_bullets = pygame.sprite.Group()
@@ -51,6 +57,8 @@ async def main():
     boss.explosion_sound = boss_explosion_sound
     boss.yellow_gun_sound = yellow_gun_sound
     boss.laser_sound = laser_sound
+    boss.red_gun_sound = red_gun_sound
+    boss.machine_gun_sound = machine_gun_sound
 
     player_fire_delay = 0.2
     player_fire_timer = 0
@@ -62,7 +70,7 @@ async def main():
 
     boss.start_game(boss_bullets)
 
-    game_state = "title"  # Can be "title", "playing", or "death"
+    game_state = "title"  # Can be "title", "playing", "death" or "win"
     
     # Create buttons for death screen
     button_width = 200
@@ -110,6 +118,21 @@ async def main():
                 elif exit_button.handle_event(event):
                     running = False
             
+            elif game_state == "win":
+                draw_win_screen(screen)
+                # Optional: Add a way to restart or exit
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        running = False
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_SPACE:
+                            # Reset game state
+                            game_state = "title"
+                            player.reset()
+                            boss.reset()
+                            boss_bullets.empty()
+                            player_bullets.empty()
+            
             elif game_state == "playing":
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_SPACE and player.can_roll():
@@ -127,6 +150,9 @@ async def main():
         
         elif game_state == "death":
             draw_death_screen(screen, death_buttons)
+        
+        elif game_state == "win":
+            draw_win_screen(screen)
         
         elif game_state == "playing":
             # Update game logic only when playing
@@ -173,7 +199,10 @@ async def main():
             for bullet in player_bullets:
                 if boss_rect.colliderect(bullet.rect):
                     if not boss.in_gauntlet:
-                        boss.take_damage()
+                        result = boss.take_damage()
+                        if result == "win":
+                            game_state = "win"
+                            break
                         if random.random() < 0.3:
                             impact = Impact(bullet.pos)
                             impact_sprites.add(impact)

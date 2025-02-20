@@ -59,7 +59,12 @@ class Boss:
         self.health_threshold_hit = False  # Track if we've hit phase 2 threshold
         self.explosion_sound = None  # For green attack
         self.yellow_gun_sound = None  # For yellow attack
-        self.laser_sound = None  # Add this for particle division laser beams
+        self.laser_sound = None  # For particle division laser beams
+        self.red_gun_sound = None  # Add this for wide spread attack
+        self.machine_gun_sound = None  # Add this for gauntlet phase
+        self.gauntlet_sound_started = False  # Add this flag
+        self.wide_spread_counter = 0  # Change from toggle to counter
+        self.fade_out_started = False  # Add this flag
 
     def update(self, player, bullet_group, dt):
         # Handle intro sequence first
@@ -228,7 +233,7 @@ class Boss:
         # Set timers based on phase
         if chosen in ["random_spread", "wide_spread"]:
             self.state_timer = 3 if not self.phase2 else 2
-            # Play yellow gun sound at start of random spread attack
+            # Only play yellow gun sound at start of random spread
             if chosen == "random_spread" and self.yellow_gun_sound:
                 self.yellow_gun_sound.play()
         elif chosen == "charge_attack":
@@ -241,7 +246,7 @@ class Boss:
 
     def start_gauntlet(self):
         self.transitioning = True
-        self.current_attack = None  # Clear any current attack
+        self.current_attack = None
         self.state = "gauntlet"
         self.pos = pygame.math.Vector2(WIDTH/2, HEIGHT/2)
         self.in_gauntlet = True
@@ -250,6 +255,7 @@ class Boss:
         self.gauntlet_angle = 30
         self.gauntlet_direction = 1
         self.gauntlet_switch_timer = 2
+        self.gauntlet_sound_started = False  # Reset the flag
         print("Boss teleports to center and enters intermission gauntlet! Immune for 10 seconds.")
 
     def update_gauntlet(self, bullet_group, dt):
@@ -257,6 +263,11 @@ class Boss:
         self.gauntlet_timer -= dt
         self.gauntlet_fire_timer -= dt
         self.gauntlet_switch_timer -= dt
+        
+        # Start fading out sound in the last 0.5 seconds
+        if self.gauntlet_timer <= 0.5 and not self.fade_out_started and self.machine_gun_sound:
+            self.machine_gun_sound.fadeout(500)  # 500ms fade out
+            self.fade_out_started = True
         
         if self.gauntlet_switch_timer <= 0:
             self.gauntlet_direction *= -1
@@ -272,9 +283,15 @@ class Boss:
             self.transitioning = False
             self.state = "idle"
             self.attack_cooldown = 3
+            self.fade_out_started = False  # Reset the flag
             print("Phase 2 begins!")
 
     def fire_complex_gauntlet(self, bullet_group):
+        # Start machine gun sound on first bullet wave
+        if not self.gauntlet_sound_started and self.machine_gun_sound:
+            self.machine_gun_sound.play(-1)
+            self.gauntlet_sound_started = True
+
         multiplier = 1.0
         num_bullets1 = 16
         for i in range(num_bullets1):
@@ -310,6 +327,11 @@ class Boss:
             bullet_group.add(bullet)
 
     def fire_wide_spread(self, bullet_group, player):
+        # Play sound effect for every third spread
+        if self.wide_spread_counter == 0 and self.red_gun_sound:
+            self.red_gun_sound.play()
+        self.wide_spread_counter = (self.wide_spread_counter + 1) % 3  # Cycle 0,1,2
+            
         multiplier = 1.5 if self.phase2 else 1.0
         direction = pygame.math.Vector2(player.rect.center) - self.pos
         if direction.length() == 0:
@@ -390,6 +412,11 @@ class Boss:
         
         self.hit_flash = 0.1
         self.health -= 3
+        
+        # Check for win condition
+        if self.health <= 0:
+            print("Boss defeated!")
+            return "win"  # Return win state
 
     def draw(self, surface):
         # Draw the boss
@@ -400,6 +427,29 @@ class Boss:
         )
         pygame.draw.circle(surface, color, (int(self.pos.x), int(self.pos.y)), self.radius)
         
+        # Add immunity visual effects
+        if self.state == "intro" or self.in_gauntlet:
+            # Draw pulsing shield ring
+            pulse = abs(math.sin(pygame.time.get_ticks() * 0.005)) * 0.5 + 0.5  # 0.5 to 1.0 pulse
+            ring_radius = int(self.radius * (1.3 + pulse * 0.3))  # Pulsing ring size
+            
+            # Draw multiple shield rings for gauntlet phase
+            if self.in_gauntlet:
+                # Outer shield ring
+                pygame.draw.circle(surface, (255, 255, 255), (int(self.pos.x), int(self.pos.y)), ring_radius + 5, 2)
+                # Inner shield ring rotating opposite direction
+                shield_angle = pygame.time.get_ticks() * 0.1  # Rotation speed
+                for i in range(8):  # Draw 8 arc segments
+                    start_angle = shield_angle + (i * 45)
+                    pygame.draw.arc(surface, (200, 200, 255), 
+                                  (self.pos.x - ring_radius, self.pos.y - ring_radius,
+                                   ring_radius * 2, ring_radius * 2),
+                                  math.radians(start_angle), 
+                                  math.radians(start_angle + 30), 2)
+            else:
+                # Simple ring for intro phase
+                pygame.draw.circle(surface, (255, 255, 255), (int(self.pos.x), int(self.pos.y)), ring_radius, 2)
+
         # Draw large health bar at top of screen
         bar_width = WIDTH * 0.7  # 70% of screen width
         bar_height = 20
@@ -482,13 +532,6 @@ class Boss:
                 
                 # Draw the main particle
                 pygame.draw.circle(surface, particle.color, pos, radius)
-
-        # Add immunity visual effect during intro
-        if self.state == "intro":
-            # Draw pulsing ring around boss during intro
-            pulse = abs(math.sin(pygame.time.get_ticks() * 0.005)) * 0.5 + 0.5  # 0.5 to 1.0 pulse
-            ring_radius = int(self.radius * (1.3 + pulse * 0.3))  # Pulsing ring size
-            pygame.draw.circle(surface, WHITE, (int(self.pos.x), int(self.pos.y)), ring_radius, 2)
 
     def start_particle_division(self, bullet_group):
         # Start the pulse warning
