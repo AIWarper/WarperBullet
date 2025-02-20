@@ -24,7 +24,7 @@ jobs:
           
       - name: Build game
         run: |
-          pygbag --build --app-url /WarperBullet .
+          pygbag --build .
           
       - name: Setup Pages
         uses: actions/configure-pages@v4
