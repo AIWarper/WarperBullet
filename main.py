@@ -1,12 +1,19 @@
 import asyncio
 import pygame
 import random
+import sys
 from game.settings import WIDTH, HEIGHT, FPS
 from game.player import Player
 from game.boss import Boss
 from game.bullet import Bullet
 from game.utils import draw_hearts, ScreenShake, Impact
 from game.ui import Button, draw_title_screen, draw_death_screen, draw_win_screen
+
+if sys.platform == 'emscripten':
+    try:
+        pygame.mixer.SoundPatch()
+    except Exception as e:
+        print("Sound patch failed:", e)
 
 async def main():
     pygame.init()
