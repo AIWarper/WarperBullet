@@ -1,2 +1,2 @@
-pygame
-pygbag
+pygame>=2.1.2
+pygbag>=0.8.0

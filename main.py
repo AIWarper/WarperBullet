@@ -23,28 +23,35 @@ async def main():
         bg.fill((0, 0, 0))
     bg = pygame.transform.scale(bg, (WIDTH, HEIGHT))
 
-    # Load sounds with volume adjustment
-    try:
-        player_gun_sound = pygame.mixer.Sound("assets/sfx/player_gun.wav")
-        player_gun_sound.set_volume(0.3)
-        boss_explosion_sound = pygame.mixer.Sound("assets/sfx/green_gun.wav")
-        boss_explosion_sound.set_volume(0.4)
-        yellow_gun_sound = pygame.mixer.Sound("assets/sfx/yellow_gun.wav")
-        yellow_gun_sound.set_volume(0.3)
-        laser_sound = pygame.mixer.Sound("assets/sfx/lazer.wav")
-        laser_sound.set_volume(0.4)
-        red_gun_sound = pygame.mixer.Sound("assets/sfx/red_gun.wav")
-        red_gun_sound.set_volume(0.3)
-        machine_gun_sound = pygame.mixer.Sound("assets/sfx/machine_gun.wav")
-        machine_gun_sound.set_volume(0.3)
-    except Exception as e:
-        print("Error loading sound effects")
-        player_gun_sound = None
-        boss_explosion_sound = None
-        yellow_gun_sound = None
-        laser_sound = None
-        red_gun_sound = None
-        machine_gun_sound = None
+    # Create a function to load sounds after user interaction
+    async def load_sounds():
+        try:
+            player_gun_sound = pygame.mixer.Sound("assets/sfx/player_gun.wav")
+            player_gun_sound.set_volume(0.3)
+            boss_explosion_sound = pygame.mixer.Sound("assets/sfx/green_gun.wav")
+            boss_explosion_sound.set_volume(0.4)
+            yellow_gun_sound = pygame.mixer.Sound("assets/sfx/yellow_gun.wav")
+            yellow_gun_sound.set_volume(0.3)
+            laser_sound = pygame.mixer.Sound("assets/sfx/lazer.wav")
+            laser_sound.set_volume(0.4)
+            red_gun_sound = pygame.mixer.Sound("assets/sfx/red_gun.wav")
+            red_gun_sound.set_volume(0.3)
+            machine_gun_sound = pygame.mixer.Sound("assets/sfx/machine_gun.wav")
+            machine_gun_sound.set_volume(0.3)
+            return (player_gun_sound, boss_explosion_sound, yellow_gun_sound, 
+                   laser_sound, red_gun_sound, machine_gun_sound)
+        except Exception as e:
+            print(f"Error loading sound effects: {e}")
+            return tuple([None] * 6)
+
+    # Initialize sound variables
+    player_gun_sound = None
+    boss_explosion_sound = None
+    yellow_gun_sound = None
+    laser_sound = None
+    red_gun_sound = None
+    machine_gun_sound = None
+    sounds_loaded = False
 
     all_sprites = pygame.sprite.Group()
     boss_bullets = pygame.sprite.Group()
@@ -97,6 +104,17 @@ async def main():
                 running = False
             
             if game_state == "title":
+                if event.type == pygame.MOUSEBUTTONDOWN and not sounds_loaded:
+                    # Load sounds after first click
+                    (player_gun_sound, boss_explosion_sound, yellow_gun_sound,
+                     laser_sound, red_gun_sound, machine_gun_sound) = await load_sounds()
+                    # Update boss sounds
+                    boss.explosion_sound = boss_explosion_sound
+                    boss.yellow_gun_sound = yellow_gun_sound
+                    boss.laser_sound = laser_sound
+                    boss.red_gun_sound = red_gun_sound
+                    boss.machine_gun_sound = machine_gun_sound
+                    sounds_loaded = True
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     game_state = "playing"
                     # Reset game state if needed
