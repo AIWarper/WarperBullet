@@ -52,6 +52,11 @@ class Boss:
         self.intro_start_pos = pygame.math.Vector2(x, 50)  # Start higher up
         self.intro_target_pos = pygame.math.Vector2(WIDTH/2, HEIGHT/2)  # Center position
         self.pos = self.intro_start_pos.copy()  # Start at intro position
+        
+        # Add state tracking
+        self.current_attack = None
+        self.transitioning = False  # Flag for phase transition
+        self.health_threshold_hit = False  # Track if we've hit phase 2 threshold
 
     def update(self, player, bullet_group, dt):
         # Handle intro sequence first
@@ -72,33 +77,22 @@ class Boss:
                 print("Boss intro complete - fight begins!")
             return  # Skip rest of update during intro
 
-        if self.health <= 350 and not self.phase2:
+        # Phase transition check - move before other updates
+        if self.health <= 350 and not self.phase2 and not self.health_threshold_hit:
+            self.health_threshold_hit = True  # Prevent multiple triggers
             if not self.in_gauntlet:
+                self.transitioning = True
                 self.start_gauntlet()
                 self.intermission_delay = 2
                 return
-            else:
-                if self.intermission_delay > 0:
-                    self.intermission_delay -= dt
-                    return
-
-        if self.in_gauntlet:
-            self.gauntlet_timer -= dt
-            self.gauntlet_fire_timer -= dt
-            self.gauntlet_switch_timer -= dt
-            if self.gauntlet_switch_timer <= 0:
-                self.gauntlet_direction *= -1
-                self.gauntlet_switch_timer = 2
-            if self.gauntlet_fire_timer <= 0:
-                self.fire_complex_gauntlet(bullet_group)
-                self.gauntlet_fire_timer = self.gauntlet_fire_interval
-            if self.gauntlet_timer <= 0:
-                self.in_gauntlet = False
-                self.phase2 = True
-                self.state = "idle"
-                self.attack_cooldown = 3
-                print("Phase 2 begins!")
-            return
+        
+        if self.transitioning:
+            if self.intermission_delay > 0:
+                self.intermission_delay -= dt
+                return
+            if self.in_gauntlet:
+                self.update_gauntlet(bullet_group, dt)
+                return
 
         self.state_timer -= dt
         self.attack_cooldown -= dt
@@ -111,12 +105,12 @@ class Boss:
             direction = pygame.math.Vector2(player.rect.center) - self.pos
             if direction.length() != 0:
                 self.pos += direction.normalize() * 1
-            if self.attack_cooldown <= 0:
-                print(f"Choosing new attack. Available attacks: {self.available_attacks}")  # Debug print
+            if self.attack_cooldown <= 0:  # Only try to choose attack if cooldown is done
                 self.choose_attack()
         elif self.state == "random_spread":
             if self.state_timer <= 0:
                 self.state = "idle"
+                self.current_attack = None  # Clear current attack
                 self.attack_cooldown = 2 if not self.phase2 else 1.5
             else:
                 if random.random() < 0.15:
@@ -124,6 +118,7 @@ class Boss:
         elif self.state == "wide_spread":
             if self.state_timer <= 0:
                 self.state = "idle"
+                self.current_attack = None  # Clear current attack
                 self.attack_cooldown = 2 if not self.phase2 else 1.5
             else:
                 if random.random() < 0.1:
@@ -137,14 +132,16 @@ class Boss:
                     self.exploded = True
                 if self.state_timer <= 0:
                     self.state = "idle"
+                    self.current_attack = None  # Clear current attack
                     self.attack_cooldown = 3 if not self.phase2 else 2
         elif self.state == "particle_division":
             if self.state_timer <= 0:
                 self.state = "idle"
+                self.current_attack = None  # Clear current attack
                 self.attack_cooldown = 3 if not self.phase2 else 2
-                self.is_pulsing = False  # Reset pulsing state
+                self.is_pulsing = False
             else:
-                if not self.is_pulsing and self.state_timer > 3.0:  # If we haven't started pulsing yet
+                if not self.is_pulsing and self.state_timer > 3.0:
                     self.start_particle_division(bullet_group)
                 self.update_particle_division(bullet_group, dt)
 
@@ -201,17 +198,24 @@ class Boss:
                 self.wave_timer = 0
 
     def choose_attack(self):
+        # Don't choose a new attack if we're still in cooldown
+        if self.attack_cooldown > 0:
+            return
+        
         # If we've used all attacks, reset the pool
         if not self.available_attacks:
-            print("Resetting attack pool!")  # Debug print
+            print("Resetting attack pool!")
             self.available_attacks = self.all_attacks.copy()
         
         # Choose a random attack from the remaining ones
         chosen = random.choice(self.available_attacks)
-        self.available_attacks.remove(chosen)  # Remove the chosen attack from the pool
-        print(f"Chose attack: {chosen}. Remaining attacks: {self.available_attacks}")  # Debug print
+        self.available_attacks.remove(chosen)
+        print(f"Chose attack: {chosen}. Remaining attacks: {self.available_attacks}")
         
+        self.current_attack = chosen
         self.state = chosen
+        
+        # Set timers based on phase
         if chosen in ["random_spread", "wide_spread"]:
             self.state_timer = 3 if not self.phase2 else 2
         elif chosen == "charge_attack":
@@ -220,9 +224,12 @@ class Boss:
             self.exploded = False
         elif chosen == "particle_division":
             self.state_timer = 6 if not self.phase2 else 4
-            self.is_pulsing = False  # Ensure pulsing starts fresh
+            self.is_pulsing = False
 
     def start_gauntlet(self):
+        self.transitioning = True
+        self.current_attack = None  # Clear any current attack
+        self.state = "gauntlet"
         self.pos = pygame.math.Vector2(WIDTH/2, HEIGHT/2)
         self.in_gauntlet = True
         self.gauntlet_timer = 10
@@ -231,6 +238,28 @@ class Boss:
         self.gauntlet_direction = 1
         self.gauntlet_switch_timer = 2
         print("Boss teleports to center and enters intermission gauntlet! Immune for 10 seconds.")
+
+    def update_gauntlet(self, bullet_group, dt):
+        """Separate method to handle gauntlet phase"""
+        self.gauntlet_timer -= dt
+        self.gauntlet_fire_timer -= dt
+        self.gauntlet_switch_timer -= dt
+        
+        if self.gauntlet_switch_timer <= 0:
+            self.gauntlet_direction *= -1
+            self.gauntlet_switch_timer = 2
+        
+        if self.gauntlet_fire_timer <= 0:
+            self.fire_complex_gauntlet(bullet_group)
+            self.gauntlet_fire_timer = self.gauntlet_fire_interval
+        
+        if self.gauntlet_timer <= 0:
+            self.in_gauntlet = False
+            self.phase2 = True
+            self.transitioning = False
+            self.state = "idle"
+            self.attack_cooldown = 3
+            print("Phase 2 begins!")
 
     def fire_complex_gauntlet(self, bullet_group):
         multiplier = 1.0
@@ -331,8 +360,8 @@ class Boss:
         self.wave_timer = 0
 
     def take_damage(self):
-        # Don't take damage during intro
-        if self.state == "intro":
+        # Don't take damage during intro or transitions
+        if self.state == "intro" or self.transitioning:
             return
         
         self.hit_flash = 0.1
@@ -522,3 +551,38 @@ class Boss:
             self.corner_particles.append(bullet)
             bullet_group.add(bullet)
             self.spiral_angles.append(0)
+
+    def reset(self):
+        """Reset boss to initial state"""
+        self.health = 700
+        self.state = "intro"
+        self.intro_timer = 3.0
+        self.pos = self.intro_start_pos.copy()
+        
+        # Reset attack system
+        self.state_timer = 0
+        self.attack_cooldown = 0
+        self.current_attack = None
+        self.available_attacks = self.all_attacks.copy()
+        
+        # Reset phase transition flags
+        self.phase2 = False
+        self.health_threshold_hit = False
+        self.transitioning = False
+        self.in_gauntlet = False
+        
+        # Reset all timers and states
+        self.charge_time = 0
+        self.exploded = False
+        self.gauntlet_timer = 0
+        self.gauntlet_fire_timer = 0
+        self.gauntlet_angle = 0
+        self.melee_cooldown = 0
+        self.melee_flash_timer = 0
+        self.hit_flash = 0
+        
+        # Reset particle division state
+        self.is_pulsing = False
+        self.particle_division_stage = 0
+        self.corner_pulse_timer = 0
+        self.corner_pulse_scale = 1.0
