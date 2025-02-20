@@ -82,7 +82,7 @@ async def main():
                 if retry_button.handle_event(event):
                     game_state = "playing"
                     # Reset game state
-                    player.hearts = 3
+                    player.reset()
                     boss.reset()
                     # Clear all bullets
                     boss_bullets.empty()

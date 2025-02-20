@@ -98,3 +98,24 @@ class Player(pygame.sprite.Sprite):
 
     def can_roll(self):
         return not self.rolling and self.roll_cooldown <= 0
+
+    def reset(self):
+        """Reset player to initial state"""
+        # Reset position
+        self.rect.centerx = WIDTH/2
+        self.rect.bottom = HEIGHT - 50
+        
+        # Reset state
+        self.hearts = 3
+        self.rolling = False
+        self.roll_timer = 0
+        self.roll_cooldown = 0
+        self.roll_direction = pygame.math.Vector2(0, 0)
+        self.last_dir = pygame.math.Vector2(0, 0)
+        self.invulnerable_timer = 0
+        self.post_roll_invulnerable = 0
+        self.damage_flash_time = 0
+        
+        # Reset appearance
+        self.image.fill(self.base_color)
+        self.image.set_alpha(255)
