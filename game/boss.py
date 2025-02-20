@@ -57,6 +57,9 @@ class Boss:
         self.current_attack = None
         self.transitioning = False  # Flag for phase transition
         self.health_threshold_hit = False  # Track if we've hit phase 2 threshold
+        self.explosion_sound = None  # For green attack
+        self.yellow_gun_sound = None  # For yellow attack
+        self.laser_sound = None  # Add this for particle division laser beams
 
     def update(self, player, bullet_group, dt):
         # Handle intro sequence first
@@ -110,7 +113,7 @@ class Boss:
         elif self.state == "random_spread":
             if self.state_timer <= 0:
                 self.state = "idle"
-                self.current_attack = None  # Clear current attack
+                self.current_attack = None
                 self.attack_cooldown = 2 if not self.phase2 else 1.5
             else:
                 if random.random() < 0.15:
@@ -152,9 +155,11 @@ class Boss:
             self.melee_cooldown = 2
             self.melee_flash_timer = 0.3
             if player.invulnerable_timer <= 0:
-                player.hearts -= 1
-                print("Player hit by melee! Hearts left:", player.hearts)
-                player.invulnerable_timer = 0.5
+                if player.take_damage():
+                    print("Player hit by melee! Hearts left:", player.hearts)
+                    if player.hearts <= 0:
+                        print("Game Over!")
+                        return "death"  # Return death state
 
         # Update hit flash
         if self.hit_flash > 0:
@@ -169,14 +174,17 @@ class Boss:
         else:
             self.current_color = [200, 0, 200]  # Reset to original purple
 
-        # Handle wave spawning if we're in the middle of a wave attack
+        # Update wave spawning section
         if hasattr(self, 'firing_waves') and self.firing_waves:
             self.wave_timer += dt
             
-            # Check each pending wave
             waves_to_remove = []
             for wave in self.pending_waves:
                 if self.wave_timer >= wave['delay']:
+                    # Play sound if this is the wave that should trigger it
+                    if wave.get('play_sound') and self.explosion_sound:
+                        self.explosion_sound.play()
+                    
                     # Spawn all bullets in this wave
                     for bullet_data in wave['bullets']:
                         bullet = Bullet(
@@ -192,10 +200,12 @@ class Boss:
             for wave in waves_to_remove:
                 self.pending_waves.remove(wave)
                 
-            # Clear the firing flag when all waves are spawned
             if not self.pending_waves:
                 self.firing_waves = False
                 self.wave_timer = 0
+
+        # Add return value at end of update
+        return None  # Return None if game should continue
 
     def choose_attack(self):
         # Don't choose a new attack if we're still in cooldown
@@ -218,6 +228,9 @@ class Boss:
         # Set timers based on phase
         if chosen in ["random_spread", "wide_spread"]:
             self.state_timer = 3 if not self.phase2 else 2
+            # Play yellow gun sound at start of random spread attack
+            if chosen == "random_spread" and self.yellow_gun_sound:
+                self.yellow_gun_sound.play()
         elif chosen == "charge_attack":
             self.state_timer = 2 if not self.phase2 else 1.5
             self.charge_time = 1.5 if not self.phase2 else 1.0
@@ -316,31 +329,34 @@ class Boss:
             bullet_group.add(bullet)
 
     def fire_charge_explosion(self, bullet_group):
+        # Move sound to play when first wave appears
+        first_wave_delay = 0  # Adjust this to control when sound plays relative to bullets
+        
         if not self.phase2:
             bullets_per_wave = 24
             num_waves = 8
             wave_delay = 0.15  # Delay between waves
             base_speed = 4
             bullet_radius = 4
-            angle_offset = 0  # Each wave will be offset by this amount
+            angle_offset = 0
         else:
             bullets_per_wave = 32
             num_waves = 10
             wave_delay = 0.12
             base_speed = 5
             bullet_radius = 3
-            angle_offset = 5  # Slightly larger offset in phase 2
+            angle_offset = 5
 
         # Store the wave configuration for delayed spawning
         self.pending_waves = []
         for wave in range(num_waves):
             wave_bullets = []
-            wave_angle_offset = (angle_offset * wave)  # Offset each wave
+            wave_angle_offset = (angle_offset * wave)
             
             for i in range(bullets_per_wave):
                 angle = (360 / bullets_per_wave) * i + wave_angle_offset
                 rad = math.radians(angle)
-                speed = base_speed + (wave * 0.5)  # Each wave slightly faster
+                speed = base_speed + (wave * 0.5)
                 vx = speed * math.cos(rad)
                 vy = speed * math.sin(rad)
                 wave_bullets.append({
@@ -350,12 +366,20 @@ class Boss:
                     'radius': bullet_radius
                 })
             
-            self.pending_waves.append({
-                'bullets': wave_bullets,
-                'delay': wave * wave_delay
-            })
+            # Add sound to first wave
+            if wave == 0:
+                self.pending_waves.append({
+                    'bullets': wave_bullets,
+                    'delay': first_wave_delay,
+                    'play_sound': True  # New flag to indicate sound should play
+                })
+            else:
+                self.pending_waves.append({
+                    'bullets': wave_bullets,
+                    'delay': wave * wave_delay,
+                    'play_sound': False
+                })
 
-        # Set a flag to indicate we're in the middle of the wave attack
         self.firing_waves = True
         self.wave_timer = 0
 
@@ -469,6 +493,9 @@ class Boss:
     def start_particle_division(self, bullet_group):
         # Start the pulse warning
         self.is_pulsing = True
+        # Play laser sound when channeling starts
+        if self.laser_sound:
+            self.laser_sound.play()
         self.corner_pulse_timer = 0
         self.corner_pulse_scale = 1.0
         # Set up random explosion delays for each corner
