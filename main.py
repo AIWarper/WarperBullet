@@ -33,17 +33,17 @@ async def main():
     # Create a function to load sounds after user interaction
     async def load_sounds():
         try:
-            player_gun_sound = pygame.mixer.Sound("assets/sfx/player_gun.wav")
+            player_gun_sound = pygame.mixer.Sound("assets/sfx/player_gun.ogg")
             player_gun_sound.set_volume(0.3)
-            boss_explosion_sound = pygame.mixer.Sound("assets/sfx/green_gun.wav")
+            boss_explosion_sound = pygame.mixer.Sound("assets/sfx/green_gun.ogg")
             boss_explosion_sound.set_volume(0.4)
-            yellow_gun_sound = pygame.mixer.Sound("assets/sfx/yellow_gun.wav")
+            yellow_gun_sound = pygame.mixer.Sound("assets/sfx/yellow_gun.ogg")
             yellow_gun_sound.set_volume(0.3)
-            laser_sound = pygame.mixer.Sound("assets/sfx/lazer.wav")
+            laser_sound = pygame.mixer.Sound("assets/sfx/lazer.ogg")
             laser_sound.set_volume(0.4)
-            red_gun_sound = pygame.mixer.Sound("assets/sfx/red_gun.wav")
+            red_gun_sound = pygame.mixer.Sound("assets/sfx/red_gun.ogg")
             red_gun_sound.set_volume(0.3)
-            machine_gun_sound = pygame.mixer.Sound("assets/sfx/machine_gun.wav")
+            machine_gun_sound = pygame.mixer.Sound("assets/sfx/machine_gun.ogg")
             machine_gun_sound.set_volume(0.3)
             return (player_gun_sound, boss_explosion_sound, yellow_gun_sound, 
                    laser_sound, red_gun_sound, machine_gun_sound)
