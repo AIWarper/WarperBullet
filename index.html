@@ -27,8 +27,12 @@
   <script>
     // Resume the audio context after the first user click
     document.addEventListener('click', () => {
-      if (pygbag?.audioContext && pygbag.audioContext.state === 'suspended') {
-        pygbag.audioContext.resume();
+      if (window.pygame && window.pygame.audioContext && window.pygame.audioContext.state === 'suspended') {
+        window.pygame.audioContext.resume().then(() => {
+          console.log('Audio context resumed successfully');
+        }).catch(err => {
+          console.error('Error resuming audio context:', err);
+        });
       }
     }, { once: true });
 

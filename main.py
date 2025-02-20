@@ -1,3 +1,8 @@
+# /// script
+# dependencies = ["pygame"]
+# pygame_sdl2_flags = ["PYGAME_SDL2_AUDIODRIVER=1"]
+# ///
+
 import asyncio
 import pygame
 import random
@@ -11,9 +16,11 @@ from game.ui import Button, draw_title_screen, draw_death_screen, draw_win_scree
 
 if sys.platform == 'emscripten':
     try:
-        pygame.mixer.SoundPatch()
+        import platform
+        # Add pixelated rendering while we're at it
+        platform.window.canvas.style.imageRendering = "pixelated"
     except Exception as e:
-        print("Sound patch failed:", e)
+        print("Platform setup failed:", e)
 
 async def main():
     pygame.init()
@@ -33,23 +40,29 @@ async def main():
     # Create a function to load sounds after user interaction
     async def load_sounds():
         try:
-            player_gun_sound = pygame.mixer.Sound("assets/sfx/player_gun.ogg")
-            player_gun_sound.set_volume(0.3)
-            boss_explosion_sound = pygame.mixer.Sound("assets/sfx/green_gun.ogg")
-            boss_explosion_sound.set_volume(0.4)
-            yellow_gun_sound = pygame.mixer.Sound("assets/sfx/yellow_gun.ogg")
-            yellow_gun_sound.set_volume(0.3)
-            laser_sound = pygame.mixer.Sound("assets/sfx/lazer.ogg")
-            laser_sound.set_volume(0.4)
-            red_gun_sound = pygame.mixer.Sound("assets/sfx/red_gun.ogg")
-            red_gun_sound.set_volume(0.3)
-            machine_gun_sound = pygame.mixer.Sound("assets/sfx/machine_gun.ogg")
-            machine_gun_sound.set_volume(0.3)
-            return (player_gun_sound, boss_explosion_sound, yellow_gun_sound, 
-                   laser_sound, red_gun_sound, machine_gun_sound)
+            sounds = {
+                'player_gun': "assets/sfx/player_gun.ogg",
+                'boss_explosion': "assets/sfx/green_gun.ogg", 
+                'yellow_gun': "assets/sfx/yellow_gun.ogg",
+                'laser': "assets/sfx/lazer.ogg",
+                'red_gun': "assets/sfx/red_gun.ogg",
+                'machine_gun': "assets/sfx/machine_gun.ogg"
+            }
+            
+            loaded_sounds = {}
+            for name, path in sounds.items():
+                try:
+                    sound = pygame.mixer.Sound(path)
+                    sound.set_volume(0.3)  # Default volume
+                    loaded_sounds[name] = sound
+                except Exception as e:
+                    print(f"Failed to load sound {name}: {e}")
+                    loaded_sounds[name] = None
+                
+            return loaded_sounds
         except Exception as e:
-            print(f"Error loading sound effects: {e}")
-            return tuple([None] * 6)
+            print(f"Error in load_sounds: {e}")
+            return {}
 
     # Initialize sound variables
     player_gun_sound = None
@@ -113,8 +126,14 @@ async def main():
             if game_state == "title":
                 if event.type == pygame.MOUSEBUTTONDOWN and not sounds_loaded:
                     # Load sounds after first click
-                    (player_gun_sound, boss_explosion_sound, yellow_gun_sound,
-                     laser_sound, red_gun_sound, machine_gun_sound) = await load_sounds()
+                    sound_dict = await load_sounds()
+                    player_gun_sound = sound_dict.get('player_gun')
+                    boss_explosion_sound = sound_dict.get('boss_explosion')
+                    yellow_gun_sound = sound_dict.get('yellow_gun')
+                    laser_sound = sound_dict.get('laser')
+                    red_gun_sound = sound_dict.get('red_gun')
+                    machine_gun_sound = sound_dict.get('machine_gun')
+                    
                     # Update boss sounds
                     boss.explosion_sound = boss_explosion_sound
                     boss.yellow_gun_sound = yellow_gun_sound
@@ -196,8 +215,11 @@ async def main():
                         velocity = direction * bullet_speed
                         bullet = Bullet(player.rect.center, velocity, color=player.base_color, radius=5)
                         player_bullets.add(bullet)
-                        if player_gun_sound:
-                            player_gun_sound.play()
+                        if player_gun_sound and sounds_loaded:
+                            try:
+                                player_gun_sound.play()
+                            except Exception as e:
+                                print(f"Error playing sound: {e}")
                         player_fire_timer = player_fire_delay
                 else:
                     player_fire_timer = 0

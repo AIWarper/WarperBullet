@@ -188,7 +188,11 @@ class Boss:
                 if self.wave_timer >= wave['delay']:
                     # Play sound if this is the wave that should trigger it
                     if wave.get('play_sound') and self.explosion_sound:
-                        self.explosion_sound.play()
+                        if self.explosion_sound and hasattr(self.explosion_sound, 'play'):
+                            try:
+                                self.explosion_sound.play()
+                            except Exception as e:
+                                print(f"Error playing boss sound: {e}")
                     
                     # Spawn all bullets in this wave
                     for bullet_data in wave['bullets']:
@@ -235,7 +239,11 @@ class Boss:
             self.state_timer = 3 if not self.phase2 else 2
             # Only play yellow gun sound at start of random spread
             if chosen == "random_spread" and self.yellow_gun_sound:
-                self.yellow_gun_sound.play()
+                if self.yellow_gun_sound and hasattr(self.yellow_gun_sound, 'play'):
+                    try:
+                        self.yellow_gun_sound.play()
+                    except Exception as e:
+                        print(f"Error playing boss sound: {e}")
         elif chosen == "charge_attack":
             self.state_timer = 2 if not self.phase2 else 1.5
             self.charge_time = 1.5 if not self.phase2 else 1.0
@@ -289,7 +297,11 @@ class Boss:
     def fire_complex_gauntlet(self, bullet_group):
         # Start machine gun sound on first bullet wave
         if not self.gauntlet_sound_started and self.machine_gun_sound:
-            self.machine_gun_sound.play(-1)
+            if self.machine_gun_sound and hasattr(self.machine_gun_sound, 'play'):
+                try:
+                    self.machine_gun_sound.play(-1)
+                except Exception as e:
+                    print(f"Error playing boss sound: {e}")
             self.gauntlet_sound_started = True
 
         multiplier = 1.0
@@ -329,7 +341,11 @@ class Boss:
     def fire_wide_spread(self, bullet_group, player):
         # Play sound effect for every third spread
         if self.wide_spread_counter == 0 and self.red_gun_sound:
-            self.red_gun_sound.play()
+            if self.red_gun_sound and hasattr(self.red_gun_sound, 'play'):
+                try:
+                    self.red_gun_sound.play()
+                except Exception as e:
+                    print(f"Error playing boss sound: {e}")
         self.wide_spread_counter = (self.wide_spread_counter + 1) % 3  # Cycle 0,1,2
             
         multiplier = 1.5 if self.phase2 else 1.0
@@ -538,7 +554,11 @@ class Boss:
         self.is_pulsing = True
         # Play laser sound when channeling starts
         if self.laser_sound:
-            self.laser_sound.play()
+            if self.laser_sound and hasattr(self.laser_sound, 'play'):
+                try:
+                    self.laser_sound.play()
+                except Exception as e:
+                    print(f"Error playing boss sound: {e}")
         self.corner_pulse_timer = 0
         self.corner_pulse_scale = 1.0
         # Set up random explosion delays for each corner
