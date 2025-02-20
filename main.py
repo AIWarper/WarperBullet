@@ -6,6 +6,7 @@ from game.player import Player
 from game.boss import Boss
 from game.bullet import Bullet
 from game.utils import draw_hearts, ScreenShake, Impact
+from game.ui import Button, draw_title_screen, draw_death_screen
 
 async def main():
     pygame.init()
@@ -41,6 +42,24 @@ async def main():
 
     boss.start_game(boss_bullets)
 
+    game_state = "title"  # Can be "title", "playing", or "death"
+    
+    # Create buttons for death screen
+    button_width = 200
+    button_height = 50
+    button_y = HEIGHT * 2/3
+    retry_button = Button(
+        WIDTH/2 - button_width - 20, button_y,
+        button_width, button_height,
+        "Try Again"
+    )
+    exit_button = Button(
+        WIDTH/2 + 20, button_y,
+        button_width, button_height,
+        "Exit"
+    )
+    death_buttons = [retry_button, exit_button]
+
     running = True
     while running:
         dt = clock.tick(FPS) / 1000.0
@@ -48,13 +67,37 @@ async def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE and player.can_roll():
-                    if player.last_dir.length() != 0:
-                        player.rolling = True
-                        player.roll_timer = 0.35
-                        player.roll_direction = player.last_dir.copy()
-                        player.image.fill(player.roll_color)
+            
+            if game_state == "title":
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    game_state = "playing"
+                    # Reset game state if needed
+                    player.hearts = 3
+                    boss.health = 700
+                    boss.state = "intro"
+                    boss.intro_timer = 3.0
+                    boss.pos = boss.intro_start_pos.copy()
+            
+            elif game_state == "death":
+                if retry_button.handle_event(event):
+                    game_state = "playing"
+                    # Reset game state
+                    player.hearts = 3
+                    boss.health = 700
+                    boss.state = "intro"
+                    boss.intro_timer = 3.0
+                    boss.pos = boss.intro_start_pos.copy()
+                elif exit_button.handle_event(event):
+                    running = False
+            
+            elif game_state == "playing":
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE and player.can_roll():
+                        if player.last_dir.length() != 0:
+                            player.rolling = True
+                            player.roll_timer = 0.35
+                            player.roll_direction = player.last_dir.copy()
+                            player.image.fill(player.roll_color)
 
         # Update sprites (pass dt to update methods)
         all_sprites.update(dt)
@@ -111,12 +154,12 @@ async def main():
                     screen_shake.start_shake(0.2, 10.0)  # 0.2 seconds, intensity 10
                     if player.hearts <= 0:
                         print("Game Over!")
-                        running = False
+                        game_state = "death"
 
             # Check if player died from melee damage
             if player.hearts <= 0:
                 print("Game Over!")
-                running = False
+                game_state = "death"
 
         # Draw everything to game_surface instead of screen
         game_surface.blit(bg, (0, 0))
@@ -140,8 +183,13 @@ async def main():
         # Add this for web compatibility
         await asyncio.sleep(0)
 
-        if boss.health <= 0 or player.hearts <= 0:
-            running = False
+        if game_state == "death":
+            draw_death_screen(screen, death_buttons)
+
+        if game_state == "playing":
+            # Check for death condition
+            if boss.health <= 0 or player.hearts <= 0:
+                game_state = "death"
 
     pygame.quit()
 
