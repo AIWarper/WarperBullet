@@ -14,7 +14,12 @@ async def main():
     clock = pygame.time.Clock()
 
     # Load background image from assets/art folder
-    bg = pygame.image.load("assets/art/background.jpg").convert()
+    try:
+        bg = pygame.image.load("assets/art/background.jpg").convert()
+    except:
+        print("Error loading background image")
+        bg = pygame.Surface((WIDTH, HEIGHT))
+        bg.fill((0, 0, 0))
     bg = pygame.transform.scale(bg, (WIDTH, HEIGHT))
 
     all_sprites = pygame.sprite.Group()
